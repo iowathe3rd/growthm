@@ -10,10 +10,19 @@ alter table public.goals enable row level security;
 create policy "Goals: own user read" on public.goals
   for select
   using (user_id = auth.uid());
-create policy "Goals: own user write" on public.goals
-  for insert, update, delete
+create policy "Goals: own user insert" on public.goals
+  for insert
+  to authenticated
+  with check (user_id = auth.uid());
+create policy "Goals: own user update" on public.goals
+  for update
+  to authenticated
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
+create policy "Goals: own user delete" on public.goals
+  for delete
+  to authenticated
+  using (user_id = auth.uid());
 
 alter table public.skill_trees enable row level security;
 create policy "Skill trees: owner goals" on public.skill_trees
