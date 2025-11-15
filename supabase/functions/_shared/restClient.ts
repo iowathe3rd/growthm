@@ -1,14 +1,16 @@
 import { ApiError } from "./errorHandler.ts";
 
-const supabaseUrl = Deno.env.get("SUPABASE_URL")?.replace(/\/+$/, "");
-const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+const supabaseUrlRaw = Deno.env.get("SUPABASE_URL")?.replace(/\/+$/, "");
+const serviceRoleKeyRaw = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-if (!supabaseUrl || !serviceRoleKey) {
+if (!supabaseUrlRaw || !serviceRoleKeyRaw) {
   throw new Error(
     "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be configured for REST access",
   );
 }
 
+const supabaseUrl = supabaseUrlRaw;
+const serviceRoleKey = serviceRoleKeyRaw;
 const restBase = `${supabaseUrl}/rest/v1`;
 
 type QueryValue = string | number | boolean | Array<string | number | boolean>;
