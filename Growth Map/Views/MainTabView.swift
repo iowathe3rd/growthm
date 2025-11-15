@@ -14,38 +14,10 @@ struct MainTabView: View {
     
     var body: some View {
         TabView {
-            // Goals tab (placeholder)
-            NavigationStack {
-                VStack(spacing: Layout.spacingL) {
-                    Image(systemName: "target")
-                        .font(.system(size: 60))
-                        .foregroundColor(AppColors.accent)
-                    
-                    Text("Goals")
-                        .font(AppTypography.title)
-                        .foregroundColor(AppColors.textPrimary)
-                    
-                    Text("Your growth map will appear here")
-                        .font(AppTypography.body)
-                        .foregroundColor(AppColors.textSecondary)
-                    
-                    Spacer()
-                    
-                    // Sign out button for testing
-                    SecondaryButton(title: "Sign Out") {
-                        Task {
-                            try? await supabaseService.signOut()
-                        }
-                    }
-                    .padding(.horizontal, Layout.screenPadding)
-                    .padding(.bottom, Layout.spacingL)
+            GoalsListView(viewModel: GoalsListViewModel(supabaseService: supabaseService))
+                .tabItem {
+                    Label("Goals", systemImage: "target")
                 }
-                .padding(.top, Layout.spacingXL)
-                .navigationTitle("GrowthMap")
-            }
-            .tabItem {
-                Label("Goals", systemImage: "target")
-            }
             
             // Progress tab (placeholder)
             NavigationStack {
