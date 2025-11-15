@@ -51,12 +51,9 @@ final class SupabaseService: ObservableObject {
     // MARK: - Initialization
     
     init() throws {
-        // Read configuration from environment or Info.plist
-        guard let urlString = ProcessInfo.processInfo.environment["SUPABASE_URL"],
-              let url = URL(string: urlString),
-              let anonKey = ProcessInfo.processInfo.environment["SUPABASE_ANON_KEY"] else {
-            throw SupabaseError.invalidConfiguration
-        }
+        let configuration = try SupabaseService.resolveConfiguration()
+        let url = configuration.url
+        let anonKey = configuration.anonKey
         
         // Initialize Supabase client
         self.client = SupabaseClient(
@@ -82,6 +79,33 @@ final class SupabaseService: ObservableObject {
         Task {
             await observeAuthState()
         }
+    }
+
+    private static func resolveConfiguration() throws -> (url: URL, anonKey: String) {
+        let environment = ProcessInfo.processInfo.environment
+        if let urlString = environment["SUPABASE_URL"],
+           let anonKey = environment["SUPABASE_ANON_KEY"],
+           let url = URL(string: urlString) {
+            return (url, anonKey)
+        }
+
+        if let bundleURL = Bundle.main.url(forResource: "SupabaseConfig", withExtension: "plist"),
+           let data = try? Data(contentsOf: bundleURL),
+           let plist = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil),
+           let values = plist as? [String: Any],
+           let urlString = values["SUPABASE_URL"] as? String,
+           let anonKey = values["SUPABASE_ANON_KEY"] as? String,
+           let url = URL(string: urlString) {
+            return (url, anonKey)
+        }
+
+        if let urlString = Bundle.main.object(forInfoDictionaryKey: "SUPABASE_URL") as? String,
+           let anonKey = Bundle.main.object(forInfoDictionaryKey: "SUPABASE_ANON_KEY") as? String,
+           let url = URL(string: urlString) {
+            return (url, anonKey)
+        }
+
+        throw SupabaseError.invalidConfiguration
     }
     
     // MARK: - Auth State Management
