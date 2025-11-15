@@ -38,6 +38,33 @@ struct CustomTextField: View {
         }
     }
     
+    @ViewBuilder
+    private var textInputField: some View {
+        if isSecure && !isSecureVisible {
+            SecureField(placeholder, text: $text)
+                .font(AppTypography.textField)
+                .textContentType(textContentType)
+                .autocorrectionDisabled()
+                .focused($isFocused)
+        } else {
+            TextField(placeholder, text: $text)
+                .font(AppTypography.textField)
+                .keyboardType(keyboardType)
+                .textContentType(textContentType)
+                .autocorrectionDisabled()
+                .focused($isFocused)
+        }
+    }
+    
+    private var toggleVisibilityButton: some View {
+        Button(action: { isSecureVisible.toggle() }) {
+            Image(systemName: isSecureVisible ? "eye.slash.fill" : "eye.fill")
+                .foregroundColor(AppColors.textSecondary)
+                .frame(width: Layout.minTouchTarget, height: Layout.minTouchTarget)
+        }
+        .accessibilityLabel(isSecureVisible ? "Hide password" : "Show password")
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: Layout.spacingXS) {
             Text(title)
@@ -45,28 +72,10 @@ struct CustomTextField: View {
                 .foregroundColor(AppColors.textPrimary)
             
             HStack {
-                if isSecure && !isSecureVisible {
-                    SecureField(placeholder, text: $text)
-                        .font(AppTypography.textField)
-                        .textContentType(textContentType)
-                        .autocorrectionDisabled()
-                        .focused($isFocused)
-                } else {
-                    TextField(placeholder, text: $text)
-                        .font(AppTypography.textField)
-                        .keyboardType(keyboardType)
-                        .textContentType(textContentType)
-                        .autocorrectionDisabled()
-                        .focused($isFocused)
-                }
+                textInputField
                 
                 if isSecure {
-                    Button(action: { isSecureVisible.toggle() }) {
-                        Image(systemName: isSecureVisible ? "eye.slash.fill" : "eye.fill")
-                            .foregroundColor(AppColors.textSecondary)
-                            .frame(width: Layout.minTouchTarget, height: Layout.minTouchTarget)
-                    }
-                    .accessibilityLabel(isSecureVisible ? "Hide password" : "Show password")
+                    toggleVisibilityButton
                 }
             }
             .padding(.horizontal, Layout.spacingM)
