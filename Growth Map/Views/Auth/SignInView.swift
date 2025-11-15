@@ -42,8 +42,7 @@ struct SignInView: View {
                     placeholder: "your.email@example.com",
                     errorMessage: viewModel.emailError,
                     keyboardType: .emailAddress,
-                    textContentType: .emailAddress,
-                    autocapitalization: .never
+                    textContentType: .emailAddress
                 )
                 
                 CustomTextField(

@@ -16,13 +16,53 @@ struct CustomTextField: View {
     var errorMessage: String?
     var keyboardType: UIKeyboardType = .default
     var textContentType: UITextContentType?
-    var autocapitalization: TextInputAutocapitalization = .never
+    var autocapitalization: UITextAutocapitalizationType = .none
     
     @State private var isSecureVisible: Bool = false
     @FocusState private var isFocused: Bool
     
     private var hasError: Bool {
-        errorMessage != nil && !errorMessage!.isEmpty
+        if let message = errorMessage {
+            return !message.isEmpty
+        }
+        return false
+    }
+    
+    private var borderColor: Color {
+        if hasError {
+            return AppColors.error
+        } else if isFocused {
+            return AppColors.accent
+        } else {
+            return Color.clear
+        }
+    }
+    
+    @ViewBuilder
+    private var textInputField: some View {
+        if isSecure && !isSecureVisible {
+            SecureField(placeholder, text: $text)
+                .font(AppTypography.textField)
+                .textContentType(textContentType)
+                .autocorrectionDisabled()
+                .focused($isFocused)
+        } else {
+            TextField(placeholder, text: $text)
+                .font(AppTypography.textField)
+                .keyboardType(keyboardType)
+                .textContentType(textContentType)
+                .autocorrectionDisabled()
+                .focused($isFocused)
+        }
+    }
+    
+    private var toggleVisibilityButton: some View {
+        Button(action: { isSecureVisible.toggle() }) {
+            Image(systemName: isSecureVisible ? "eye.slash.fill" : "eye.fill")
+                .foregroundColor(AppColors.textSecondary)
+                .frame(width: Layout.minTouchTarget, height: Layout.minTouchTarget)
+        }
+        .accessibilityLabel(isSecureVisible ? "Hide password" : "Show password")
     }
     
     var body: some View {
@@ -32,28 +72,10 @@ struct CustomTextField: View {
                 .foregroundColor(AppColors.textPrimary)
             
             HStack {
-                if isSecure && !isSecureVisible {
-                    SecureField(placeholder, text: $text)
-                        .font(AppTypography.textField)
-                        .textContentType(textContentType)
-                        .autocapitalization(autocapitalization)
-                        .focused($isFocused)
-                } else {
-                    TextField(placeholder, text: $text)
-                        .font(AppTypography.textField)
-                        .keyboardType(keyboardType)
-                        .textContentType(textContentType)
-                        .autocapitalization(autocapitalization)
-                        .focused($isFocused)
-                }
+                textInputField
                 
                 if isSecure {
-                    Button(action: { isSecureVisible.toggle() }) {
-                        Image(systemName: isSecureVisible ? "eye.slash.fill" : "eye.fill")
-                            .foregroundColor(AppColors.textSecondary)
-                            .frame(width: Layout.minTouchTarget, height: Layout.minTouchTarget)
-                    }
-                    .accessibilityLabel(isSecureVisible ? "Hide password" : "Show password")
+                    toggleVisibilityButton
                 }
             }
             .padding(.horizontal, Layout.spacingM)
@@ -62,10 +84,7 @@ struct CustomTextField: View {
             .cornerRadius(Layout.cornerRadiusM)
             .overlay(
                 RoundedRectangle(cornerRadius: Layout.cornerRadiusM)
-                    .stroke(
-                        hasError ? AppColors.error : (isFocused ? AppColors.accent : Color.clear),
-                        lineWidth: Layout.borderWidth
-                    )
+                    .stroke(borderColor, lineWidth: Layout.borderWidth)
             )
             
             if let errorMessage = errorMessage, !errorMessage.isEmpty {
@@ -80,7 +99,7 @@ struct CustomTextField: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(title)
         .accessibilityValue(text.isEmpty ? placeholder : text)
-        .accessibilityHint(hasError ? errorMessage : "Text field for \(title.lowercased())")
+        .accessibilityHint(hasError ? (errorMessage ?? "") : "Text field for \(title.lowercased())")
     }
 }
 
