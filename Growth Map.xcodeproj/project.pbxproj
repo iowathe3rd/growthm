@@ -10,8 +10,6 @@
 		AB8826B82EC8867800F49375 /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = AB8826B72EC8867800F49375 /* Auth */; };
 		AB8826BA2EC8867800F49375 /* Functions in Frameworks */ = {isa = PBXBuildFile; productRef = AB8826B92EC8867800F49375 /* Functions */; };
 		AB8826BC2EC8867800F49375 /* PostgREST in Frameworks */ = {isa = PBXBuildFile; productRef = AB8826BB2EC8867800F49375 /* PostgREST */; };
-		AB8826BE2EC8867800F49375 /* Realtime in Frameworks */ = {isa = PBXBuildFile; productRef = AB8826BD2EC8867800F49375 /* Realtime */; };
-		AB8826C02EC8867800F49375 /* Storage in Frameworks */ = {isa = PBXBuildFile; productRef = AB8826BF2EC8867800F49375 /* Storage */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -63,8 +61,6 @@
 				AB8826BC2EC8867800F49375 /* PostgREST in Frameworks */,
 				AB8826BA2EC8867800F49375 /* Functions in Frameworks */,
 				AB8826B82EC8867800F49375 /* Auth in Frameworks */,
-				AB8826C02EC8867800F49375 /* Storage in Frameworks */,
-				AB8826BE2EC8867800F49375 /* Realtime in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -128,8 +124,6 @@
 				AB8826B72EC8867800F49375 /* Auth */,
 				AB8826B92EC8867800F49375 /* Functions */,
 				AB8826BB2EC8867800F49375 /* PostgREST */,
-				AB8826BD2EC8867800F49375 /* Realtime */,
-				AB8826BF2EC8867800F49375 /* Storage */,
 			);
 			productName = "Growth Map";
 			productReference = AB8826872EC8712C00F49375 /* Growth Map.app */;
@@ -626,16 +620,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = AB8826B62EC8867800F49375 /* XCRemoteSwiftPackageReference "supabase-swift" */;
 			productName = PostgREST;
-		};
-		AB8826BD2EC8867800F49375 /* Realtime */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = AB8826B62EC8867800F49375 /* XCRemoteSwiftPackageReference "supabase-swift" */;
-			productName = Realtime;
-		};
-		AB8826BF2EC8867800F49375 /* Storage */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = AB8826B62EC8867800F49375 /* XCRemoteSwiftPackageReference "supabase-swift" */;
-			productName = Storage;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
