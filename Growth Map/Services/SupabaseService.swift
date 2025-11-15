@@ -7,7 +7,7 @@
 
 import Foundation
 import Supabase
-import Auth
+import Combine
 
 /// Custom errors for Supabase operations
 enum SupabaseError: LocalizedError {
@@ -46,7 +46,7 @@ final class SupabaseService: ObservableObject {
     
     // MARK: - Private Properties
     
-    private let client: SupabaseClient
+    let client: SupabaseClient
     
     // MARK: - Initialization
     
@@ -65,8 +65,8 @@ final class SupabaseService: ObservableObject {
             options: SupabaseClientOptions(
                 db: .init(
                     schema: "public",
-                    decoder: DateFormatters.jsonDecoder,
-                    encoder: DateFormatters.jsonEncoder
+                    encoder: DateFormatters.jsonEncoder,
+                    decoder: DateFormatters.jsonDecoder
                 ),
                 auth: .init(
                     flowType: .pkce,
@@ -88,31 +88,37 @@ final class SupabaseService: ObservableObject {
     
     /// Observes authentication state changes
     private func observeAuthState() async {
-        for await state in client.auth.authStateChanges {
-            switch state {
-            case .signedIn(let session):
-                currentSession = session
-                currentUser = session.user
-                isAuthenticated = true
-                
-            case .signedOut:
-                currentSession = nil
-                currentUser = nil
-                isAuthenticated = false
-                
-            case .initialSession(let session):
+        for await (event, session) in client.auth.authStateChanges {
+            switch event {
+            case .signedIn:
                 if let session = session {
                     currentSession = session
                     currentUser = session.user
                     isAuthenticated = true
                 }
                 
-            case .userUpdated(let session):
-                currentSession = session
-                currentUser = session.user
+            case .signedOut:
+                currentSession = nil
+                currentUser = nil
+                isAuthenticated = false
                 
-            case .tokenRefreshed(let session):
-                currentSession = session
+            case .initialSession:
+                if let session = session {
+                    currentSession = session
+                    currentUser = session.user
+                    isAuthenticated = true
+                }
+                
+            case .userUpdated:
+                if let session = session {
+                    currentSession = session
+                    currentUser = session.user
+                }
+                
+            case .tokenRefreshed:
+                if let session = session {
+                    currentSession = session
+                }
                 
             default:
                 break
@@ -134,11 +140,7 @@ final class SupabaseService: ObservableObject {
                 password: password
             )
             
-            guard let user = response.user else {
-                throw SupabaseError.invalidResponse
-            }
-            
-            return user
+            return response.user
         } catch {
             throw SupabaseError.networkError(error)
         }

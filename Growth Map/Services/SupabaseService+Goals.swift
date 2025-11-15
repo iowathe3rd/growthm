@@ -94,16 +94,36 @@ extension SupabaseService {
             throw SupabaseError.notAuthenticated
         }
         
-        // Prepare the insert data
-        let insertData: [String: Any] = [
-            "user_id": userId.uuidString,
-            "title": title,
-            "description": description,
-            "horizon_months": horizonMonths,
-            "daily_minutes": dailyMinutes,
-            "status": GoalStatus.draft.rawValue,
-            "priority": 0
-        ]
+        // Create insert data structure
+        struct GoalInsert: Encodable {
+            let userId: String
+            let title: String
+            let description: String
+            let horizonMonths: Int
+            let dailyMinutes: Int
+            let status: String
+            let priority: Int
+            
+            enum CodingKeys: String, CodingKey {
+                case userId = "user_id"
+                case title
+                case description
+                case horizonMonths = "horizon_months"
+                case dailyMinutes = "daily_minutes"
+                case status
+                case priority
+            }
+        }
+        
+        let insertData = GoalInsert(
+            userId: userId.uuidString,
+            title: title,
+            description: description,
+            horizonMonths: horizonMonths,
+            dailyMinutes: dailyMinutes,
+            status: GoalStatus.draft.rawValue,
+            priority: 0
+        )
         
         do {
             let goal: Goal = try await client
@@ -125,14 +145,14 @@ extension SupabaseService {
     ///   - id: Goal ID to update
     ///   - updates: Dictionary of fields to update
     /// - Returns: The updated goal
-    func updateGoal(id: UUID, updates: [String: Any]) async throws -> Goal {
+    func updateGoal(id: UUID, updates: [String: AnyCodable]) async throws -> Goal {
         guard currentUser != nil else {
             throw SupabaseError.notAuthenticated
         }
         
         // Add updated_at timestamp
         var updateData = updates
-        updateData["updated_at"] = ISO8601DateFormatter().string(from: Date())
+        updateData["updated_at"] = AnyCodable(ISO8601DateFormatter().string(from: Date()))
         
         do {
             let goal: Goal = try await client
@@ -156,7 +176,7 @@ extension SupabaseService {
     ///   - status: New status
     /// - Returns: The updated goal
     func updateGoalStatus(id: UUID, status: GoalStatus) async throws -> Goal {
-        try await updateGoal(id: id, updates: ["status": status.rawValue])
+        try await updateGoal(id: id, updates: ["status": AnyCodable(status.rawValue)])
     }
     
     /// Delete a goal
@@ -311,10 +331,20 @@ extension SupabaseService {
             throw SupabaseError.notAuthenticated
         }
         
-        let updateData: [String: Any] = [
-            "status": status.rawValue,
-            "updated_at": ISO8601DateFormatter().string(from: Date())
-        ]
+        struct TaskUpdate: Encodable {
+            let status: String
+            let updatedAt: String
+            
+            enum CodingKeys: String, CodingKey {
+                case status
+                case updatedAt = "updated_at"
+            }
+        }
+        
+        let updateData = TaskUpdate(
+            status: status.rawValue,
+            updatedAt: ISO8601DateFormatter().string(from: Date())
+        )
         
         do {
             let task: SprintTask = try await client

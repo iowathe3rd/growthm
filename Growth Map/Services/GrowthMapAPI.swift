@@ -7,7 +7,6 @@
 
 import Foundation
 import Supabase
-import Functions
 
 /// Service for calling Supabase Edge Functions
 /// Handles all AI-powered growth map operations
@@ -36,21 +35,12 @@ final class GrowthMapAPI {
         }
         
         do {
-            // Encode request body
-            let requestData = try DateFormatters.jsonEncoder.encode(body)
-            
-            // Call Edge Function
-            let response = try await supabaseService.supabaseClient.functions.invoke(
+            // Call Edge Function - invoke returns decoded result directly
+            let result: CreateGrowthMapResult = try await supabaseService.supabaseClient.functions.invoke(
                 "create-growth-map",
                 options: FunctionInvokeOptions(
-                    body: requestData
+                    body: body
                 )
-            )
-            
-            // Decode response
-            let result = try DateFormatters.jsonDecoder.decode(
-                CreateGrowthMapResult.self,
-                from: response.data
             )
             
             return result
@@ -71,21 +61,12 @@ final class GrowthMapAPI {
         }
         
         do {
-            // Encode request body
-            let requestData = try DateFormatters.jsonEncoder.encode(body)
-            
-            // Call Edge Function
-            let response = try await supabaseService.supabaseClient.functions.invoke(
+            // Call Edge Function - invoke returns decoded result directly
+            let result: RegenerateSprintResult = try await supabaseService.supabaseClient.functions.invoke(
                 "regenerate-sprint",
                 options: FunctionInvokeOptions(
-                    body: requestData
+                    body: body
                 )
-            )
-            
-            // Decode response
-            let result = try DateFormatters.jsonDecoder.decode(
-                RegenerateSprintResult.self,
-                from: response.data
             )
             
             return result
@@ -106,21 +87,12 @@ final class GrowthMapAPI {
         }
         
         do {
-            // Encode request body
-            let requestData = try DateFormatters.jsonEncoder.encode(body)
-            
-            // Call Edge Function
-            let response = try await supabaseService.supabaseClient.functions.invoke(
+            // Call Edge Function - invoke returns decoded result directly
+            let result: GrowthReportResult = try await supabaseService.supabaseClient.functions.invoke(
                 "growth-report",
                 options: FunctionInvokeOptions(
-                    body: requestData
+                    body: body
                 )
-            )
-            
-            // Decode response
-            let result = try DateFormatters.jsonDecoder.decode(
-                GrowthReportResult.self,
-                from: response.data
             )
             
             return result
@@ -141,22 +113,12 @@ final class GrowthMapAPI {
         }
         
         do {
-            // Prepare request body
-            let requestBody = ["goal_id": goalId]
-            let requestData = try JSONSerialization.data(withJSONObject: requestBody)
-            
-            // Call Edge Function
-            let response = try await supabaseService.supabaseClient.functions.invoke(
+            // Call Edge Function - invoke returns decoded result directly
+            let result: GoalDetailResponse = try await supabaseService.supabaseClient.functions.invoke(
                 "get-goal-detail",
                 options: FunctionInvokeOptions(
-                    body: requestData
+                    body: ["goal_id": goalId]
                 )
-            )
-            
-            // Decode response
-            let result = try DateFormatters.jsonDecoder.decode(
-                GoalDetailResponse.self,
-                from: response.data
             )
             
             return result
