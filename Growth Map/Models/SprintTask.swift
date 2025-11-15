@@ -35,7 +35,10 @@ struct SprintTask: Identifiable, Codable, Equatable {
     let estimatedMinutes: Int?
     let createdAt: Date
     let updatedAt: Date
-    
+
+    /// Convenience flag for checking whether the task has been completed
+    var isCompleted: Bool { status == .done }
+
     enum CodingKeys: String, CodingKey {
         case id
         case sprintId = "sprint_id"

@@ -7,19 +7,27 @@
 
 import SwiftUI
 import Auth
-import Auth
 
 /// Main app view shown after successful authentication
 /// Placeholder for future goals/sprints/progress views
 struct MainTabView: View {
     @EnvironmentObject var supabaseService: SupabaseService
-    
+    @State private var selectedTab: Tab = .goals
+
+    private enum Tab {
+        case goals
+        case progress
+        case tasks
+        case profile
+    }
+
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             GoalsListView(viewModel: GoalsListViewModel(supabaseService: supabaseService))
                 .tabItem {
                     Label("Goals", systemImage: "target")
                 }
+                .tag(Tab.goals)
             
             // Progress tab (placeholder)
             NavigationStack {
@@ -41,7 +49,22 @@ struct MainTabView: View {
             .tabItem {
                 Label("Progress", systemImage: "chart.line.uptrend.xyaxis")
             }
-            
+            .tag(Tab.progress)
+
+            // Tasks tab
+            NavigationStack {
+                TasksView(
+                    viewModel: TasksViewModel(supabaseService: supabaseService),
+                    onSprintFinished: {
+                        selectedTab = .goals
+                    }
+                )
+            }
+            .tabItem {
+                Label("Tasks", systemImage: "checklist")
+            }
+            .tag(Tab.tasks)
+
             // Profile tab (placeholder)
             NavigationStack {
                 VStack {
@@ -64,25 +87,29 @@ struct MainTabView: View {
             .tabItem {
                 Label("Profile", systemImage: "person.circle")
             }
+            .tag(Tab.profile)
         }
         .accentColor(AppColors.accent)
     }
 }
 
 #Preview {
-    struct PreviewWrapper: View {
-        @StateObject private var supabaseService: SupabaseService
-        
-        init() {
-            let service = try! SupabaseService()
-            _supabaseService = StateObject(wrappedValue: service)
+        struct PreviewWrapper: View {
+            @StateObject private var supabaseService: SupabaseService
+            @StateObject private var growthMapAPI: GrowthMapAPI
+
+            init() {
+                let service = try! SupabaseService()
+                _supabaseService = StateObject(wrappedValue: service)
+                _growthMapAPI = StateObject(wrappedValue: GrowthMapAPI(supabaseService: service))
+            }
+
+            var body: some View {
+                MainTabView()
+                    .environmentObject(supabaseService)
+                    .environmentObject(growthMapAPI)
+            }
         }
-        
-        var body: some View {
-            MainTabView()
-                .environmentObject(supabaseService)
-        }
-    }
     
     return PreviewWrapper()
 }

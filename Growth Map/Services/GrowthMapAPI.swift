@@ -6,12 +6,17 @@
 //
 
 import Foundation
+import Combine
 import Supabase
+
+protocol GrowthMapAPIProtocol: AnyObject {
+    func getGoalDetail(goalId: String) async throws -> GoalDetailResponse
+}
 
 /// Service for calling Supabase Edge Functions
 /// Handles all AI-powered growth map operations
 @MainActor
-final class GrowthMapAPI {
+final class GrowthMapAPI: ObservableObject, GrowthMapAPIProtocol {
     
     // MARK: - Properties
     

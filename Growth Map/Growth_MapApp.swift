@@ -24,14 +24,21 @@ struct Growth_MapApp: App {
         }
     }()
     
-    // MARK: - Supabase Service
-    @StateObject private var supabaseService: SupabaseService = {
+    // MARK: - Services
+    @StateObject private var supabaseService: SupabaseService
+    @StateObject private var growthMapAPI: GrowthMapAPI
+
+    init() {
+        let supabaseService: SupabaseService
         do {
-            return try SupabaseService()
+            supabaseService = try SupabaseService()
         } catch {
             fatalError("Failed to initialize SupabaseService: \(error)")
         }
-    }()
+
+        _supabaseService = StateObject(wrappedValue: supabaseService)
+        _growthMapAPI = StateObject(wrappedValue: GrowthMapAPI(supabaseService: supabaseService))
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -40,6 +47,7 @@ struct Growth_MapApp: App {
                     // Main app view (post-authentication)
                     MainTabView()
                         .environmentObject(supabaseService)
+                        .environmentObject(growthMapAPI)
                 } else {
                     // Authentication view
                     AuthenticationView(supabaseService: supabaseService)

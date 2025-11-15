@@ -20,7 +20,12 @@ struct Sprint: Identifiable, Codable, Equatable {
     let metrics: [String: AnyCodable]
     let createdAt: Date
     let updatedAt: Date
-    
+
+    /// Convenience property to detect whether the sprint has already been completed
+    var isCompleted: Bool {
+        status.lowercased() == "completed" || status.lowercased() == "finished"
+    }
+
     enum CodingKeys: String, CodingKey {
         case id
         case goalId = "goal_id"
