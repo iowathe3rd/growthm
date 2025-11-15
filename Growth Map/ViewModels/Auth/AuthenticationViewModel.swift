@@ -7,6 +7,7 @@
 
 import SwiftUI
 import Combine
+import Combine
 
 /// Coordinator ViewModel for authentication flow
 /// Manages state for switching between Sign In and Sign Up views

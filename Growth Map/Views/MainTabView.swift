@@ -6,6 +6,8 @@
 //
 
 import SwiftUI
+import Auth
+import Auth
 
 /// Main app view shown after successful authentication
 /// Placeholder for future goals/sprints/progress views

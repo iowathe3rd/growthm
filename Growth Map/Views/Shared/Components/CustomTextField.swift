@@ -16,13 +16,16 @@ struct CustomTextField: View {
     var errorMessage: String?
     var keyboardType: UIKeyboardType = .default
     var textContentType: UITextContentType?
-    var autocapitalization: TextInputAutocapitalization = .never
+    var autocapitalization: UITextAutocapitalizationType = .none
     
     @State private var isSecureVisible: Bool = false
     @FocusState private var isFocused: Bool
     
     private var hasError: Bool {
-        errorMessage != nil && !errorMessage!.isEmpty
+        if let message = errorMessage {
+            return !message.isEmpty
+        }
+        return false
     }
     
     var body: some View {
@@ -36,14 +39,14 @@ struct CustomTextField: View {
                     SecureField(placeholder, text: $text)
                         .font(AppTypography.textField)
                         .textContentType(textContentType)
-                        .autocapitalization(autocapitalization)
+                        .autocorrectionDisabled()
                         .focused($isFocused)
                 } else {
                     TextField(placeholder, text: $text)
                         .font(AppTypography.textField)
                         .keyboardType(keyboardType)
                         .textContentType(textContentType)
-                        .autocapitalization(autocapitalization)
+                        .autocorrectionDisabled()
                         .focused($isFocused)
                 }
                 
@@ -80,7 +83,7 @@ struct CustomTextField: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(title)
         .accessibilityValue(text.isEmpty ? placeholder : text)
-        .accessibilityHint(hasError ? errorMessage : "Text field for \(title.lowercased())")
+        .accessibilityHint(hasError ? (errorMessage ?? "") : "Text field for \(title.lowercased())")
     }
 }
 
