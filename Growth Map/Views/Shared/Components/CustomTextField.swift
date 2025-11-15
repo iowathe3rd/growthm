@@ -28,6 +28,16 @@ struct CustomTextField: View {
         return false
     }
     
+    private var borderColor: Color {
+        if hasError {
+            return AppColors.error
+        } else if isFocused {
+            return AppColors.accent
+        } else {
+            return Color.clear
+        }
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: Layout.spacingXS) {
             Text(title)
@@ -65,10 +75,7 @@ struct CustomTextField: View {
             .cornerRadius(Layout.cornerRadiusM)
             .overlay(
                 RoundedRectangle(cornerRadius: Layout.cornerRadiusM)
-                    .stroke(
-                        hasError ? AppColors.error : (isFocused ? AppColors.accent : Color.clear),
-                        lineWidth: Layout.borderWidth
-                    )
+                    .stroke(borderColor, lineWidth: Layout.borderWidth)
             )
             
             if let errorMessage = errorMessage, !errorMessage.isEmpty {
