@@ -94,19 +94,22 @@ struct MainTabView: View {
 }
 
 #Preview {
-    struct PreviewWrapper: View {
-        @StateObject private var supabaseService: SupabaseService
-        
-        init() {
-            let service = try! SupabaseService()
-            _supabaseService = StateObject(wrappedValue: service)
+        struct PreviewWrapper: View {
+            @StateObject private var supabaseService: SupabaseService
+            @StateObject private var growthMapAPI: GrowthMapAPI
+
+            init() {
+                let service = try! SupabaseService()
+                _supabaseService = StateObject(wrappedValue: service)
+                _growthMapAPI = StateObject(wrappedValue: GrowthMapAPI(supabaseService: service))
+            }
+
+            var body: some View {
+                MainTabView()
+                    .environmentObject(supabaseService)
+                    .environmentObject(growthMapAPI)
+            }
         }
-        
-        var body: some View {
-            MainTabView()
-                .environmentObject(supabaseService)
-        }
-    }
     
     return PreviewWrapper()
 }
