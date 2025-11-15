@@ -7,6 +7,7 @@
 
 import SwiftUI
 import Combine
+import Combine
 /// ViewModel for sign in screen
 /// Handles email/password validation and authentication flow
 @MainActor
@@ -116,7 +117,7 @@ class SignInViewModel: ObservableObject {
     
     /// Convert technical errors to user-friendly messages
     private func handleError(_ error: Error) {
-        if let supabaseError = error as? SupabaseService.SupabaseError {
+        if let supabaseError = error as? SupabaseError {
             errorMessage = supabaseError.userFriendlyMessage
         } else {
             let errorDescription = error.localizedDescription.lowercased()
@@ -137,7 +138,7 @@ class SignInViewModel: ObservableObject {
 
 // MARK: - Error Message Extension
 
-extension SupabaseService.SupabaseError {
+extension SupabaseError {
     /// User-friendly error messages for auth flow
     var userFriendlyMessage: String {
         switch self {

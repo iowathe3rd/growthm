@@ -7,6 +7,7 @@
 
 import SwiftUI
 import Combine
+import Combine
 /// ViewModel for sign up screen
 /// Handles email/password validation, password confirmation, and registration
 @MainActor
@@ -143,7 +144,7 @@ class SignUpViewModel: ObservableObject {
     
     /// Convert technical errors to user-friendly messages
     private func handleError(_ error: Error) {
-        if let supabaseError = error as? SupabaseService.SupabaseError {
+        if let supabaseError = error as? SupabaseError {
             errorMessage = supabaseError.userFriendlyMessage
         } else {
             let errorDescription = error.localizedDescription.lowercased()
