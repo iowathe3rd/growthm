@@ -29,7 +29,7 @@ struct AppColors {
     // MARK: - Accent Colors
     
     /// Primary accent color (cyan/neo-cyan for CTAs and highlights)
-    static let accent = Color("AccentColor") // Falls back to blue if asset missing
+    static let accent = Color(red: 0.2, green: 0.6, blue: 1.0) // Blue accent color
     
     /// Alternative accent color for variety (green)
     static let accentSecondary = Color(red: 0.2, green: 0.8, blue: 0.6)

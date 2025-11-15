@@ -67,7 +67,8 @@ final class SupabaseService: ObservableObject {
                 ),
                 auth: .init(
                     flowType: .pkce,
-                    autoRefreshToken: true
+                    autoRefreshToken: true,
+                    emitLocalSessionAsInitialSession: true
                 ),
                 global: .init(
                     headers: ["X-Client-Info": "growthmap-ios/1.0.0"]
