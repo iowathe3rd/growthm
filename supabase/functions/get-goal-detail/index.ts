@@ -1,13 +1,17 @@
 import { serve } from "https://deno.land/std@0.214.0/http/server.ts";
-import { supabaseAdmin } from "../_shared/supabaseAdmin.ts";
 import { ApiError, errorHandler } from "../_shared/errorHandler.ts";
 import {
   extractBearerToken,
   requireAuthenticatedUser,
 } from "../_shared/auth.ts";
+import { selectRecords, selectSingleRecord } from "../_shared/restClient.ts";
 import type {
   GoalDetailResponse,
+  GoalRecord,
   SkillTreeNodeRecord,
+  SkillTreeRecord,
+  SprintRecord,
+  SprintTaskRecord,
 } from "../_shared/types.ts";
 
 serve(async (req) => {
@@ -25,13 +29,11 @@ serve(async (req) => {
       throw new ApiError("goal_id is required", 400);
     }
 
-    const { data: goal, error: goalError } = await supabaseAdmin
-      .from("goals")
-      .select("*")
-      .eq("id", goalId)
-      .maybeSingle();
+    const goal = await selectSingleRecord<GoalRecord>("goals", {
+      id: `eq.${goalId}`,
+    });
 
-    if (goalError || !goal) {
+    if (!goal) {
       throw new ApiError("Goal not found", 404);
     }
 
@@ -39,49 +41,30 @@ serve(async (req) => {
       throw new ApiError("Forbidden", 403);
     }
 
-    const { data: skillTree, error: skillTreeError } = await supabaseAdmin
-      .from("skill_trees")
-      .select("*")
-      .eq("goal_id", goalId)
-      .maybeSingle();
+    const skillTree = await selectSingleRecord<SkillTreeRecord>("skill_trees", {
+      goal_id: `eq.${goalId}`,
+    });
 
-    if (skillTreeError) {
-      throw new ApiError("Failed to load skill tree", 500);
-    }
+    const nodes = skillTree
+      ? await selectRecords<SkillTreeNodeRecord>("skill_tree_nodes", {
+        skill_tree_id: `eq.${skillTree.id}`,
+      })
+      : [];
 
-    let nodes: SkillTreeNodeRecord[] = [];
-    if (skillTree) {
-      const { data: savedNodes, error: nodesError } = await supabaseAdmin
-        .from("skill_tree_nodes")
-        .select("*")
-        .eq("skill_tree_id", skillTree.id);
-      if (nodesError) {
-        throw new ApiError("Failed to load skill tree nodes", 500);
-      }
-      nodes = savedNodes ?? [];
-    }
-    const { data: latestSprint, error: sprintError } = await supabaseAdmin
-      .from("sprints")
-      .select("*")
-      .eq("goal_id", goalId)
-      .order("sprint_number", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (sprintError) {
-      throw new ApiError("Failed to load sprint", 500);
-    }
+    const [latestSprint] = await selectRecords<SprintRecord>("sprints", {
+      goal_id: `eq.${goalId}`,
+      order: "sprint_number.desc",
+      limit: 1,
+      select: "*",
+    });
 
     let latestSprintWithTasks = null;
     if (latestSprint) {
-      const { data: sprintTasks, error: tasksError } = await supabaseAdmin
-        .from("sprint_tasks")
-        .select("*")
-        .eq("sprint_id", latestSprint.id);
-      if (tasksError) {
-        throw new ApiError("Failed to load sprint tasks", 500);
-      }
-      latestSprintWithTasks = { ...latestSprint, tasks: sprintTasks ?? [] };
+      const sprintTasks = await selectRecords<SprintTaskRecord>(
+        "sprint_tasks",
+        { sprint_id: `eq.${latestSprint.id}` },
+      );
+      latestSprintWithTasks = { ...latestSprint, tasks: sprintTasks };
     }
 
     const response: GoalDetailResponse = {

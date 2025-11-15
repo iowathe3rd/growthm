@@ -1,21 +1,25 @@
 import { serve } from "https://deno.land/std@0.214.0/http/server.ts";
-import { supabaseAdmin } from "../_shared/supabaseAdmin.ts";
 import { ApiError, errorHandler } from "../_shared/errorHandler.ts";
-import {
-  generateSkillTreeDraft,
-  planInitialSprint,
-} from "../_shared/llmClient.ts";
 import {
   extractBearerToken,
   requireAuthenticatedUser,
 } from "../_shared/auth.ts";
+import { insertRecords } from "../_shared/restClient.ts";
 import type {
   CreateGrowthMapBody,
   CreateGrowthMapResult,
+  GoalRecord,
   SkillTreeNodeDraft,
   SkillTreeNodeRecord,
+  SkillTreeRecord,
+  SprintRecord,
   SprintTaskDraft,
+  SprintTaskRecord,
 } from "../_shared/types.ts";
+import {
+  generateSkillTreeDraft,
+  planInitialSprint,
+} from "../_shared/llmClient.ts";
 
 serve(async (req) => {
   try {
@@ -29,85 +33,71 @@ serve(async (req) => {
     const payload = (await req.json()) as CreateGrowthMapBody;
     validateGoalInput(payload);
 
-    const { data: goal, error: goalError } = await supabaseAdmin
-      .from("goals")
-      .insert([
-        {
-          user_id: user.id,
-          title: payload.title,
-          description: payload.description,
-          horizon_months: payload.horizonMonths,
-          daily_minutes: payload.dailyMinutes,
-          status: "active",
-          priority: 0,
-          target_date: payload.targetDate ?? null,
-        },
-      ])
-      .select("*")
-      .single();
+    const [goal] = await insertRecords<GoalRecord>("goals", [
+      {
+        user_id: user.id,
+        title: payload.title,
+        description: payload.description,
+        horizon_months: payload.horizonMonths,
+        daily_minutes: payload.dailyMinutes,
+        status: "active",
+        priority: 0,
+        target_date: payload.targetDate ?? null,
+      },
+    ]);
 
-    if (goalError || !goal) {
+    if (!goal) {
       throw new ApiError("Failed to insert goal", 500);
     }
 
     const draft = await generateSkillTreeDraft(payload);
 
-    const { data: tree, error: treeError } = await supabaseAdmin
-      .from("skill_trees")
-      .insert([
-        {
-          goal_id: goal.id,
-          tree_json: draft.treeJson,
-          generated_by: "create-growth-map",
-          version: 1,
-        },
-      ])
-      .select("*")
-      .single();
+    const [tree] = await insertRecords<SkillTreeRecord>("skill_trees", [
+      {
+        goal_id: goal.id,
+        tree_json: draft.treeJson,
+        generated_by: "create-growth-map",
+        version: 1,
+      },
+    ]);
 
-    if (treeError || !tree) {
+    if (!tree) {
       throw new ApiError("Failed to persist skill tree", 500);
     }
 
-    const nodePayloads = draft.nodes.map((node) => (
-      {
-        skill_tree_id: tree.id,
-        node_path: node.nodePath,
-        title: node.title,
-        level: node.level,
-        focus_hours: node.focusHours,
-        payload: node.payload,
-      }
-    ));
+    const nodePayloads = draft.nodes.map((node) => ({
+      skill_tree_id: tree.id,
+      node_path: node.nodePath,
+      title: node.title,
+      level: node.level,
+      focus_hours: node.focusHours,
+      payload: node.payload,
+    }));
 
-    const { data: insertedNodes, error: nodeError } = await supabaseAdmin
-      .from("skill_tree_nodes")
-      .insert(nodePayloads)
-      .select("*");
+    const insertedNodes = await insertRecords<SkillTreeNodeRecord>(
+      "skill_tree_nodes",
+      nodePayloads,
+    );
 
-    if (nodeError || !insertedNodes) {
+    if (!insertedNodes.length) {
       throw new ApiError("Failed to persist skill tree nodes", 500);
     }
 
     const sprintPlan = planInitialSprint(payload, draft.nodes);
 
-    const { data: sprint, error: sprintError } = await supabaseAdmin
-      .from("sprints")
-      .insert([
-        {
-          goal_id: goal.id,
-          sprint_number: sprintPlan.sprintNumber,
-          from_date: sprintPlan.fromDate,
-          to_date: sprintPlan.toDate,
-          status: "planned",
-          summary: sprintPlan.summary,
-          metrics: { horizonMonths: payload.horizonMonths },
-        },
-      ])
-      .select("*")
-      .single();
+    const [sprint] = await insertRecords<SprintRecord>("sprints", [
+      {
+        goal_id: goal.id,
+        sprint_number: sprintPlan.sprintNumber,
+        from_date: sprintPlan.fromDate,
+        to_date: sprintPlan.toDate,
+        status: "planned",
+        summary: sprintPlan.summary,
+        metrics: { horizonMonths: payload.horizonMonths },
+      },
+    ]);
 
-    if (sprintError || !sprint) {
+    if (!sprint) {
       throw new ApiError("Failed to persist sprint", 500);
     }
 
@@ -119,12 +109,12 @@ serve(async (req) => {
       sprint.id,
       nodeMap,
     );
-    const { data: insertedTasks, error: tasksError } = await supabaseAdmin
-      .from("sprint_tasks")
-      .insert(taskPayloads)
-      .select("*");
+    const insertedTasks = await insertRecords<SprintTaskRecord>(
+      "sprint_tasks",
+      taskPayloads,
+    );
 
-    if (tasksError || !insertedTasks) {
+    if (!insertedTasks.length) {
       throw new ApiError("Failed to persist sprint tasks", 500);
     }
 

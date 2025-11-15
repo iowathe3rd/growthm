@@ -1,19 +1,21 @@
 import { serve } from "https://deno.land/std@0.214.0/http/server.ts";
-import { supabaseAdmin } from "../_shared/supabaseAdmin.ts";
 import { ApiError, errorHandler } from "../_shared/errorHandler.ts";
 import {
   extractBearerToken,
   requireAuthenticatedUser,
 } from "../_shared/auth.ts";
+import { selectRecords, selectSingleRecord } from "../_shared/restClient.ts";
 import {
   generateGrowthReport,
   goalRecordToGoalInput,
 } from "../_shared/llmClient.ts";
 import { summarizeTaskStatuses } from "../_shared/sprintStats.ts";
 import type {
+  GoalRecord,
   GrowthReportBody,
   GrowthReportResult,
   ProgressLogRecord,
+  SprintRecord,
   SprintSummary,
   SprintTaskRecord,
 } from "../_shared/types.ts";
@@ -35,13 +37,11 @@ serve(async (req) => {
       throw new ApiError("goalId is required", 400);
     }
 
-    const { data: goal, error: goalError } = await supabaseAdmin
-      .from("goals")
-      .select("*")
-      .eq("id", body.goalId)
-      .maybeSingle();
+    const goal = await selectSingleRecord<GoalRecord>("goals", {
+      id: `eq.${body.goalId}`,
+    });
 
-    if (goalError || !goal) {
+    if (!goal) {
       throw new ApiError("Goal not found", 404);
     }
 
@@ -64,54 +64,56 @@ serve(async (req) => {
       Math.min(6, body.includeSprints ?? DEFAULT_SPRINTS),
     );
 
-    const { data: sprints } = await supabaseAdmin
-      .from("sprints")
-      .select("*")
-      .eq("goal_id", goal.id)
-      .order("sprint_number", { ascending: false })
-      .limit(includeSprints);
+    const sprints = await selectRecords<SprintRecord>("sprints", {
+      goal_id: `eq.${goal.id}`,
+      order: "sprint_number.desc",
+      limit: includeSprints,
+    });
 
-    const sprintIds = (sprints ?? []).map((sprint) => sprint.id);
-    const { data: tasks } = sprintIds.length
-      ? await supabaseAdmin
-        .from("sprint_tasks")
-        .select("*")
-        .in("sprint_id", sprintIds)
-      : { data: [] };
+    const sprintIds = sprints.map((sprint) => sprint.id);
+    const tasks = sprintIds.length
+      ? await selectRecords<SprintTaskRecord>("sprint_tasks", {
+        sprint_id: `in.(${sprintIds.join(",")})`,
+      })
+      : [];
 
     const tasksBySprint = new Map<string, SprintTaskRecord[]>();
-    (tasks ?? []).forEach((task) => {
+    tasks.forEach((task) => {
       if (!tasksBySprint.has(task.sprint_id)) {
         tasksBySprint.set(task.sprint_id, []);
       }
       tasksBySprint.get(task.sprint_id)?.push(task);
     });
 
-    const sprintSummaries: SprintSummary[] = (sprints ?? []).map((sprint) => ({
+    const sprintSummaries: SprintSummary[] = sprints.map((sprint) => ({
       sprint,
       ...summarizeTaskStatuses(tasksBySprint.get(sprint.id) ?? []),
     }));
 
-    const { data: progressLogs } = await supabaseAdmin
-      .from("progress_logs")
-      .select("*")
-      .eq("goal_id", goal.id)
-      .gte("recorded_at", sinceDate.toISOString())
-      .lte("recorded_at", untilDate.toISOString())
-      .order("recorded_at", { ascending: false })
-      .limit(30);
+    const progressLogs = await selectRecords<ProgressLogRecord>(
+      "progress_logs",
+      {
+        goal_id: `eq.${goal.id}`,
+        recorded_at: [
+          `gte.${sinceDate.toISOString()}`,
+          `lte.${untilDate.toISOString()}`,
+        ],
+        order: "recorded_at.desc",
+        limit: 30,
+      },
+    );
 
     const insights = await generateGrowthReport(
       goalRecordToGoalInput(goal),
       sprintSummaries,
-      (progressLogs ?? []) as ProgressLogRecord[],
+      progressLogs,
     );
 
     const response: GrowthReportResult = {
       goal,
       sprintSummaries,
       insights,
-      progressLogs: (progressLogs ?? []) as ProgressLogRecord[],
+      progressLogs,
     };
 
     return new Response(JSON.stringify(response), {

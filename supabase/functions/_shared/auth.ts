@@ -1,5 +1,15 @@
-import { supabaseAdmin } from "./supabaseAdmin.ts";
 import { ApiError } from "./errorHandler.ts";
+
+const supabaseUrl = Deno.env.get("SUPABASE_URL")?.replace(/\/+$/, "");
+const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+if (!supabaseUrl || !serviceRoleKey) {
+  throw new Error(
+    "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required for auth checks",
+  );
+}
+
+const userEndpoint = `${supabaseUrl}/auth/v1/user`;
 
 export function extractBearerToken(req: Request): string {
   const header = req.headers.get("Authorization");
@@ -10,9 +20,18 @@ export function extractBearerToken(req: Request): string {
 }
 
 export async function requireAuthenticatedUser(token: string) {
-  const { data, error } = await supabaseAdmin.auth.getUser(token);
-  if (error || !data.user) {
+  const response = await fetch(userEndpoint, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      apikey: serviceRoleKey,
+    },
+  });
+
+  if (!response.ok) {
     throw new ApiError("Invalid or expired session", 401);
   }
-  return data.user;
+
+  const json = await response.json();
+  return json.user ?? json;
 }

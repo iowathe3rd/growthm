@@ -1,10 +1,15 @@
 import { serve } from "https://deno.land/std@0.214.0/http/server.ts";
-import { supabaseAdmin } from "../_shared/supabaseAdmin.ts";
 import { ApiError, errorHandler } from "../_shared/errorHandler.ts";
 import {
   extractBearerToken,
   requireAuthenticatedUser,
 } from "../_shared/auth.ts";
+import {
+  insertRecords,
+  selectRecords,
+  selectSingleRecord,
+  updateRecords,
+} from "../_shared/restClient.ts";
 import {
   generateSkillTreeDraft,
   goalRecordToGoalInput,
@@ -15,9 +20,14 @@ import {
   summarizeTaskStatuses,
 } from "../_shared/sprintStats.ts";
 import type {
+  GoalRecord,
+  ProgressLogRecord,
   RegenerateSprintBody,
   RegenerateSprintResult,
   SkillTreeNodeDraft,
+  SkillTreeNodeRecord,
+  SkillTreeRecord,
+  SprintRecord,
   SprintTaskRecord,
 } from "../_shared/types.ts";
 
@@ -37,23 +47,17 @@ serve(async (req) => {
       throw new ApiError("sprintId is required", 400);
     }
 
-    const { data: sprint, error: sprintError } = await supabaseAdmin
-      .from("sprints")
-      .select("*")
-      .eq("id", body.sprintId)
-      .maybeSingle();
-
-    if (sprintError || !sprint) {
+    const sprint = await selectSingleRecord<SprintRecord>("sprints", {
+      id: `eq.${body.sprintId}`,
+    });
+    if (!sprint) {
       throw new ApiError("Sprint not found", 404);
     }
 
-    const { data: goal, error: goalError } = await supabaseAdmin
-      .from("goals")
-      .select("*")
-      .eq("id", sprint.goal_id)
-      .maybeSingle();
-
-    if (goalError || !goal) {
+    const goal = await selectSingleRecord<GoalRecord>("goals", {
+      id: `eq.${sprint.goal_id}`,
+    });
+    if (!goal) {
       throw new ApiError("Goal not found", 404);
     }
 
@@ -61,12 +65,11 @@ serve(async (req) => {
       throw new ApiError("Forbidden", 403);
     }
 
-    const { data: sprintTasks } = await supabaseAdmin
-      .from("sprint_tasks")
-      .select("*")
-      .eq("sprint_id", sprint.id);
+    const sprintTasks = await selectRecords<SprintTaskRecord>("sprint_tasks", {
+      sprint_id: `eq.${sprint.id}`,
+    });
+    const validTaskIds = new Set(sprintTasks.map((task) => task.id));
 
-    const validTaskIds = new Set((sprintTasks ?? []).map((task) => task.id));
     for (const update of body.statusUpdates ?? []) {
       if (!validTaskIds.has(update.taskId)) {
         throw new ApiError(
@@ -74,40 +77,30 @@ serve(async (req) => {
           400,
         );
       }
-      const { error: updateError } = await supabaseAdmin
-        .from("sprint_tasks")
-        .update({ status: update.status })
-        .eq("id", update.taskId)
-        .eq("sprint_id", sprint.id);
-
-      if (updateError) {
-        throw new ApiError("Failed to update sprint task", 500);
-      }
+      await updateRecords("sprint_tasks", { status: update.status }, {
+        id: `eq.${update.taskId}`,
+        sprint_id: `eq.${sprint.id}`,
+      });
     }
 
-    const { data: refreshedTasks } = await supabaseAdmin
-      .from("sprint_tasks")
-      .select("*")
-      .eq("sprint_id", sprint.id);
-
-    const taskStats = summarizeTaskStatuses(
-      refreshedTasks ?? [] as SprintTaskRecord[],
+    const refreshedTasks = await selectRecords<SprintTaskRecord>(
+      "sprint_tasks",
+      { sprint_id: `eq.${sprint.id}` },
     );
 
-    const { data: latestSprint } = await supabaseAdmin
-      .from("sprints")
-      .select("sprint_number")
-      .eq("goal_id", goal.id)
-      .order("sprint_number", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const taskStats = summarizeTaskStatuses(refreshedTasks);
+
+    const [latestSprint] = await selectRecords<SprintRecord>("sprints", {
+      goal_id: `eq.${goal.id}`,
+      order: "sprint_number.desc",
+      limit: 1,
+    });
 
     const previousLengthDays = Math.max(
       6,
       Math.round(
         (new Date(sprint.to_date).getTime() -
-          new Date(sprint.from_date).getTime()) /
-          MS_PER_DAY,
+          new Date(sprint.from_date).getTime()) / MS_PER_DAY,
       ),
     );
 
@@ -117,19 +110,14 @@ serve(async (req) => {
     const toDate = new Date(fromDate);
     toDate.setDate(fromDate.getDate() + previousLengthDays);
 
-    const { data: skillTree } = await supabaseAdmin
-      .from("skill_trees")
-      .select("*")
-      .eq("goal_id", goal.id)
-      .maybeSingle();
+    const skillTree = await selectSingleRecord<SkillTreeRecord>("skill_trees", {
+      goal_id: `eq.${goal.id}`,
+    });
 
     const nodeRecords = skillTree
-      ? (
-        await supabaseAdmin
-          .from("skill_tree_nodes")
-          .select("*")
-          .eq("skill_tree_id", skillTree.id)
-      ).data ?? []
+      ? await selectRecords<SkillTreeNodeRecord>("skill_tree_nodes", {
+        skill_tree_id: `eq.${skillTree.id}`,
+      })
       : [];
 
     let nodeDrafts: SkillTreeNodeDraft[] = nodeRecords.map((node) => ({
@@ -140,7 +128,7 @@ serve(async (req) => {
       payload: node.payload ?? {},
     }));
 
-    if (nodeDrafts.length === 0) {
+    if (!nodeDrafts.length) {
       const fallback = await generateSkillTreeDraft(
         goalRecordToGoalInput(goal),
       );
@@ -162,29 +150,25 @@ serve(async (req) => {
       },
     );
 
-    const { data: nextSprint, error: nextSprintError } = await supabaseAdmin
-      .from("sprints")
-      .insert([
-        {
-          goal_id: goal.id,
-          sprint_number: sprintPlan.sprintNumber,
-          from_date: sprintPlan.fromDate,
-          to_date: sprintPlan.toDate,
-          status: "planned",
-          summary: sprintPlan.summary,
-          metrics: {
-            completed: taskStats.completed,
-            pending: taskStats.pending,
-            skipped: taskStats.skipped,
-            feedback: body.feedback ?? null,
-            feelingTags: body.feelingTags ?? [],
-          },
+    const [nextSprint] = await insertRecords<SprintRecord>("sprints", [
+      {
+        goal_id: goal.id,
+        sprint_number: sprintPlan.sprintNumber,
+        from_date: sprintPlan.fromDate,
+        to_date: sprintPlan.toDate,
+        status: "planned",
+        summary: sprintPlan.summary,
+        metrics: {
+          completed: taskStats.completed,
+          pending: taskStats.pending,
+          skipped: taskStats.skipped,
+          feedback: body.feedback ?? null,
+          feelingTags: body.feelingTags ?? [],
         },
-      ])
-      .select("*")
-      .single();
+      },
+    ]);
 
-    if (nextSprintError || !nextSprint) {
+    if (!nextSprint) {
       throw new ApiError("Failed to persist regenerated sprint", 500);
     }
 
@@ -202,18 +186,18 @@ serve(async (req) => {
       estimated_minutes: task.estimatedMinutes ?? null,
     }));
 
-    const { data: insertedTasks, error: tasksError } = await supabaseAdmin
-      .from("sprint_tasks")
-      .insert(taskPayloads)
-      .select("*");
+    const insertedTasks = await insertRecords<SprintTaskRecord>(
+      "sprint_tasks",
+      taskPayloads,
+    );
 
-    if (tasksError || !insertedTasks) {
+    if (!insertedTasks.length) {
       throw new ApiError("Failed to persist regenerated sprint tasks", 500);
     }
 
-    const { data: progressLog, error: logError } = await supabaseAdmin
-      .from("progress_logs")
-      .insert([
+    const [progressLog] = await insertRecords<ProgressLogRecord>(
+      "progress_logs",
+      [
         {
           user_id: user.id,
           goal_id: goal.id,
@@ -225,11 +209,10 @@ serve(async (req) => {
             body.feelingTags ?? [],
           ),
         },
-      ])
-      .select("*")
-      .single();
+      ],
+    );
 
-    if (logError || !progressLog) {
+    if (!progressLog) {
       throw new ApiError("Failed to persist progress log", 500);
     }
 
