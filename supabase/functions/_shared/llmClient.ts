@@ -108,7 +108,9 @@ function buildSprintTasks(
       : "low";
     return {
       title: node.title,
-      description: `Work on ${node.title} by allocating ${Math.ceil(node.focusHours)} focused minutes this week.`,
+      description: `Work on ${node.title} by allocating ${
+        Math.ceil(node.focusHours)
+      } focused minutes this week.`,
       difficulty,
       dueDate: due.toISOString().split("T")[0],
       estimatedMinutes: Math.max(15, Math.round(node.focusHours)),
@@ -210,14 +212,20 @@ function formatSprintPrompt(
     feelingTags?: string[];
   },
 ): string {
-  const nodeList = nodes.slice(0, 5).map((node) => `* ${node.nodePath}: ${node.title}`).join("\n");
+  const nodeList = nodes.slice(0, 5).map((node) =>
+    `* ${node.nodePath}: ${node.title}`
+  ).join("\n");
   const summary = context.feedback
     ? `Based on feedback: ${context.feedback}`
     : "";
   const feelings = context.feelingTags?.length
     ? `Feelings: ${context.feelingTags.join(", ")}`
     : "";
-  return `Goal: ${goal.title}\nDescription: ${goal.description}\nSprint #: ${sprintNumber}, window ${formatDate(fromDate)} -> ${formatDate(toDate)}\nContext: completed ${context.completed}, pending ${context.pending}, skipped ${context.skipped}. ${summary} ${feelings}\nCandidate nodes:\n${nodeList}\nOutput JSON: {\"summary\": \"...\", \"tasks\": [{\"title\":\"...\",\"description\":\"...\",\"difficulty\":\"low|medium|high\",\"nodePath\":\"...\",\"estimatedMinutes\": 15,\"dueDate\": \"YYYY-MM-DD\"}]}\nUse at most 5 tasks.`;
+  return `Goal: ${goal.title}\nDescription: ${goal.description}\nSprint #: ${sprintNumber}, window ${
+    formatDate(fromDate)
+  } -> ${
+    formatDate(toDate)
+  }\nContext: completed ${context.completed}, pending ${context.pending}, skipped ${context.skipped}. ${summary} ${feelings}\nCandidate nodes:\n${nodeList}\nOutput JSON: {\"summary\": \"...\", \"tasks\": [{\"title\":\"...\",\"description\":\"...\",\"difficulty\":\"low|medium|high\",\"nodePath\":\"...\",\"estimatedMinutes\": 15,\"dueDate\": \"YYYY-MM-DD\"}]}\nUse at most 5 tasks.`;
 }
 
 function normalizeLLMTask(
@@ -231,7 +239,7 @@ function normalizeLLMTask(
     ? task.dueDate
     : formatDate(baseDue);
   const difficulty = typeof task.difficulty === "string" &&
-    ["low", "medium", "high"].includes(task.difficulty)
+      ["low", "medium", "high"].includes(task.difficulty)
     ? (task.difficulty as Difficulty)
     : "medium";
   return {
@@ -292,9 +300,10 @@ export async function planAdaptiveSprint(
           summary: typeof parsed.summary === "string"
             ? parsed.summary
             : fallback.summary,
-          tasks: parsed.tasks.map((task: Record<string, unknown>, index: number) =>
-            normalizeLLMTask(task, fromDate, index)
-          ),
+          tasks: parsed.tasks.map((
+            task: Record<string, unknown>,
+            index: number,
+          ) => normalizeLLMTask(task, fromDate, index)),
         };
       }
     } catch (error) {
@@ -311,7 +320,9 @@ function buildGrowthReportPrompt(
   logs: ProgressLogRecord[],
 ): string {
   const sprintLines = summaries.map((summary) =>
-    `Sprint ${summary.sprint.sprint_number}: ${summary.completed} done, ${summary.pending} pending, ${summary.skipped} skipped, summary ${summary.sprint.summary ?? ""}`,
+    `Sprint ${summary.sprint.sprint_number}: ${summary.completed} done, ${summary.pending} pending, ${summary.skipped} skipped, summary ${
+      summary.sprint.summary ?? ""
+    }`
   ).join("\n");
   const logLines = logs
     .slice(0, 5)
@@ -325,9 +336,15 @@ export async function generateGrowthReport(
   summaries: SprintSummary[],
   logs: ProgressLogRecord[],
 ): Promise<{ narrative: string; recommendations: string[] }> {
-  const totalCompleted = summaries.reduce((acc, summary) => acc + summary.completed, 0);
+  const totalCompleted = summaries.reduce(
+    (acc, summary) => acc + summary.completed,
+    0,
+  );
   const fallback = {
-    narrative: `Across ${summaries.length} sprints you completed ${totalCompleted} tasks and have ${summaries.reduce((acc, summary) => acc + summary.pending, 0)} pending items. Continue tracking streaks and reflections.`,
+    narrative:
+      `Across ${summaries.length} sprints you completed ${totalCompleted} tasks and have ${
+        summaries.reduce((acc, summary) => acc + summary.pending, 0)
+      } pending items. Continue tracking streaks and reflections.`,
     recommendations: [
       "Review the most skipped nodes and adjust your focus.",
       "Keep annotating progress logs so adaptation stays grounded in data.",
@@ -342,10 +359,15 @@ export async function generateGrowthReport(
     const prompt = buildGrowthReportPrompt(goal, summaries, logs);
     const raw = await callLLM(prompt);
     const parsed = JSON.parse(raw);
-    if (typeof parsed.narrative === "string" && Array.isArray(parsed.recommendations)) {
+    if (
+      typeof parsed.narrative === "string" &&
+      Array.isArray(parsed.recommendations)
+    ) {
       return {
         narrative: parsed.narrative,
-        recommendations: parsed.recommendations.filter((item: unknown) => typeof item === "string") as string[],
+        recommendations: parsed.recommendations.filter((item: unknown) =>
+          typeof item === "string"
+        ) as string[],
       };
     }
   } catch (error) {
