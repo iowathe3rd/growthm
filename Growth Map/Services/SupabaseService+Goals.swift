@@ -305,7 +305,7 @@ extension SupabaseService {
         guard currentUser != nil else {
             throw SupabaseError.notAuthenticated
         }
-        
+
         do {
             let tasks: [SprintTask] = try await client
                 .from("sprint_tasks")
@@ -314,8 +314,75 @@ extension SupabaseService {
                 .order("created_at", ascending: true)
                 .execute()
                 .value
-            
+
             return tasks
+        } catch {
+            throw SupabaseError.networkError(error)
+        }
+    }
+
+    /// Fetch the current active sprint for the user with all of its tasks
+    /// - Returns: SprintWithTasks if found, nil otherwise
+    func fetchCurrentSprintWithTasks() async throws -> SprintWithTasks? {
+        guard currentUser != nil else {
+            throw SupabaseError.notAuthenticated
+        }
+
+        do {
+            let sprint: Sprint = try await client
+                .from("sprints")
+                .select()
+                .eq("status", value: "active")
+                .order("from_date", ascending: false)
+                .limit(1)
+                .single()
+                .execute()
+                .value
+
+            let tasks = try await fetchTasks(forSprint: sprint.id)
+            return SprintWithTasks(sprint: sprint, tasks: tasks)
+        } catch {
+            if error.localizedDescription.contains("404") {
+                return nil
+            }
+            throw SupabaseError.networkError(error)
+        }
+    }
+
+    /// Mark a sprint as finished by updating its status to completed
+    /// - Parameter sprintId: Sprint ID to update
+    /// - Returns: Updated sprint model
+    func finishSprint(sprintId: UUID) async throws -> Sprint {
+        guard currentUser != nil else {
+            throw SupabaseError.notAuthenticated
+        }
+
+        struct SprintUpdate: Encodable {
+            let status: String
+            let updatedAt: String
+
+            enum CodingKeys: String, CodingKey {
+                case status
+                case updatedAt = "updated_at"
+            }
+        }
+
+        let updateData = SprintUpdate(
+            status: "completed",
+            updatedAt: ISO8601DateFormatter().string(from: Date())
+        )
+
+        do {
+            let sprint: Sprint = try await client
+                .from("sprints")
+                .update(updateData)
+                .eq("id", value: sprintId.uuidString)
+                .select()
+                .single()
+                .execute()
+                .value
+
+            return sprint
         } catch {
             throw SupabaseError.networkError(error)
         }

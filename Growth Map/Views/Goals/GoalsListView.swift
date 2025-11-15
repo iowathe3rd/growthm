@@ -8,125 +8,130 @@
 import SwiftUI
 
 struct GoalsListView: View {
-    @EnvironmentObject private var supabaseService: SupabaseService
-    @EnvironmentObject private var growthMapAPI: GrowthMapAPI
+    @StateObject private var viewModel: GoalsListViewModel
 
-    @State private var goals: [Goal] = []
-    @State private var isLoading = false
-    @State private var errorMessage: String?
-    @State private var hasLoaded = false
+    init(viewModel: GoalsListViewModel) {
+        _viewModel = StateObject(wrappedValue: viewModel)
+    }
 
     var body: some View {
-        List {
-            if let errorMessage {
-                Section {
-                    ErrorView(message: errorMessage) {
-                        self.errorMessage = nil
-                    }
-                }
-                .listRowBackground(Color.clear)
-                .textCase(nil)
-            }
+        NavigationStack {
+            ZStack {
+                AppColors.background.ignoresSafeArea()
 
-            if goals.isEmpty && !isLoading {
-                Section(header: Text("No Goals Yet").font(AppTypography.title3)) {
-                    Text("Create a growth map to see your AI-generated skill tree here.")
-                        .font(AppTypography.body)
-                        .foregroundColor(AppColors.textSecondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.vertical, Layout.spacingL)
-                }
-                .listRowBackground(Color.clear)
-                .textCase(nil)
-            } else {
-                Section(header: Text("Your Goals").font(AppTypography.title3)) {
-                    ForEach(goals) { goal in
-                        NavigationLink {
-                            SkillTreeView(goalId: goal.id, initialGoal: goal, growthMapAPI: growthMapAPI)
-                        } label: {
-                            goalRow(goal)
-                        }
-                        .buttonStyle(.plain)
-                        .listRowInsets(
-                            EdgeInsets(top: Layout.spacingS, leading: 0, bottom: Layout.spacingS, trailing: 0)
-                        )
-                        .listRowSeparator(.hidden)
-                        .listRowBackground(Color.clear)
+                content
+                    .animation(.easeInOut, value: viewModel.goals.count)
+            }
+            .navigationTitle("Goals")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        viewModel.isShowingCreateGoalSheet = true
+                    } label: {
+                        Label("Add Goal", systemImage: "plus")
                     }
                 }
-                .textCase(nil)
+            }
+            .task {
+                await viewModel.loadGoalsIfNeeded()
+            }
+            .sheet(isPresented: $viewModel.isShowingCreateGoalSheet) {
+                CreateGoalSheet(viewModel: viewModel)
             }
         }
-        .listStyle(.insetGrouped)
-        .scrollContentBackground(.hidden)
-        .background(AppColors.background)
-        .navigationTitle("Goals")
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button {
-                    Task { try? await supabaseService.signOut() }
-                } label: {
-                    Image(systemName: "rectangle.portrait.and.arrow.right")
-                        .foregroundColor(AppColors.accent)
+    }
+
+    private var content: some View {
+        ScrollView {
+            VStack(spacing: Layout.spacingL) {
+                if let errorMessage = viewModel.errorMessage {
+                    ErrorView(message: errorMessage) {
+                        viewModel.errorMessage = nil
+                        Task { await viewModel.refreshGoals() }
+                    }
+                    .padding(.top, Layout.spacingM)
                 }
-                .accessibilityLabel("Sign out")
+
+                PrimaryButton(title: "+ Add Goal") {
+                    viewModel.isShowingCreateGoalSheet = true
+                }
+
+                if viewModel.isLoading && viewModel.orderedGoals().isEmpty {
+                    ProgressView("Loading goals...")
+                        .padding()
+                } else if viewModel.orderedGoals().isEmpty {
+                    EmptyStateView(
+                        icon: "target",
+                        title: "No goals yet",
+                        message: "Kick off your growth journey by creating a goal. We'll help you craft the roadmap.",
+                        actionTitle: "Create Goal"
+                    ) {
+                        viewModel.isShowingCreateGoalSheet = true
+                    }
+                    .padding(.top, Layout.spacingXL)
+                } else {
+                    LazyVStack(spacing: Layout.spacingM, pinnedViews: []) {
+                        ForEach(viewModel.orderedGoals()) { goal in
+                            NavigationLink {
+                                GoalDetailView(goal: goal)
+                            } label: {
+                                GoalCardView(goal: goal)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
             }
-        }
-        .overlay {
-            if isLoading && goals.isEmpty {
-                ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle(tint: AppColors.accent))
-            }
-        }
-        .task {
-            await loadGoals(force: false)
+            .padding()
         }
         .refreshable {
-            await loadGoals(force: true)
+            await viewModel.refreshGoals()
         }
     }
+}
 
-    private func goalRow(_ goal: Goal) -> some View {
-        CardView {
-            VStack(alignment: .leading, spacing: Layout.spacingS) {
-                Text(goal.title)
-                    .font(AppTypography.headline)
-                    .foregroundColor(AppColors.textPrimary)
+// MARK: - Sheet Factory
 
-                Text(goal.description)
-                    .font(AppTypography.body)
-                    .foregroundColor(AppColors.textSecondary)
-                    .lineLimit(2)
+private extension GoalsListView {
+    struct CreateGoalSheet: View {
+        @Environment(\.dismiss) private var dismiss
+        let viewModel: GoalsListViewModel
 
-                HStack(spacing: Layout.spacingM) {
-                    Label("Priority \(goal.priority)", systemImage: "flag.fill")
-                    Label("\(goal.dailyMinutes) min/day", systemImage: "timer")
-                }
-                .font(AppTypography.caption)
-                .foregroundColor(AppColors.textSecondary)
+        var body: some View {
+            NavigationStack {
+                CreateGoalView(
+                    viewModel: CreateGoalViewModel(
+                        growthMapAPI: GrowthMapAPI(supabaseService: viewModel.supabaseService),
+                        onGoalCreated: { _ in
+                            Task {
+                                await viewModel.refreshGoals()
+                            }
+                            dismiss()
+                        }
+                    )
+                )
             }
+            .presentationDetents([.large])
+        }
+    }
+}
+
+#Preview {
+    struct PreviewWrapper: View {
+        @StateObject private var supabaseService: SupabaseService
+        @StateObject private var viewModel: GoalsListViewModel
+
+        init() {
+            let service = try! SupabaseService()
+            _supabaseService = StateObject(wrappedValue: service)
+            _viewModel = StateObject(wrappedValue: GoalsListViewModel(supabaseService: service))
+        }
+
+        var body: some View {
+            GoalsListView(viewModel: viewModel)
+                .environmentObject(supabaseService)
         }
     }
 
-    @MainActor
-    private func loadGoals(force: Bool) async {
-        guard !isLoading else { return }
-        if !force && hasLoaded { return }
-
-        isLoading = true
-        errorMessage = nil
-
-        defer { isLoading = false }
-
-        do {
-            goals = try await supabaseService.fetchGoals()
-            hasLoaded = true
-        } catch {
-            if let supabaseError = error as? SupabaseError {
-                errorMessage = supabaseError.errorDescription ?? "Unable to load goals."
-            } else {
-                errorMessage = error.localizedDescription
-            }
-        }
-    }
+    return PreviewWrapper()
 }

@@ -7,7 +7,6 @@
 
 import SwiftUI
 import Combine
-import Combine
 /// ViewModel for sign up screen
 /// Handles email/password validation, password confirmation, and registration
 @MainActor
