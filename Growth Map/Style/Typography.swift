@@ -102,3 +102,14 @@ extension Text {
             .foregroundColor(AppColors.error)
     }
 }
+
+// MARK: - View Modifiers
+
+extension View {
+    /// Apply error text styling to any view containing text elements
+    func errorText() -> some View {
+        self
+            .font(AppTypography.helperText)
+            .foregroundColor(AppColors.error)
+    }
+}

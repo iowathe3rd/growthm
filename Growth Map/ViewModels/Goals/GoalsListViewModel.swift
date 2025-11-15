@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Combine
 
 /// View model that loads the authenticated user's goals and exposes loading/error state
 @MainActor

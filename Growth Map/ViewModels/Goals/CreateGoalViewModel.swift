@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Combine
 
 /// Handles validation and submission logic for the create goal sheet
 @MainActor
