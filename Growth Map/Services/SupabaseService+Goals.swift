@@ -1,431 +1,188 @@
-//
-//  SupabaseService+Goals.swift
-//  Growth Map
-//
-//  Created on November 15, 2025.
-//
-
 import Foundation
-import Supabase
+import SupabaseClient
 
-/// Extension for Goal-related database operations
+enum SupabaseError: Error, LocalizedError {
+    case notAuthenticated
+    case networkError(Error)
+    case unexpectedResponse(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .notAuthenticated:
+            return "User is not authenticated"
+        case .networkError(let e):
+            return e.localizedDescription
+        case .unexpectedResponse(let msg):
+            return msg
+        }
+    }
+}
+
+struct SprintWithTasks {
+    let sprint: Sprint
+    let tasks: [SprintTask]
+}
+
+final class SupabaseService {
+    private let client: SupabaseClientProtocol
+    var currentUser: SupabaseUser? = nil
+
+    init(client: SupabaseClientProtocol) {
+        self.client = client
+    }
+}
+
 extension SupabaseService {
-    
-    // MARK: - Goal CRUD Operations
-    
-    /// Fetch all goals for the current user
-    /// - Returns: Array of goals
-    func fetchGoals() async throws -> [Goal] {
-        guard let userId = currentUser?.id else {
-            throw SupabaseError.notAuthenticated
-        }
-        
-        do {
-            let goals: [Goal] = try await client
-                .from("goals")
-                .select()
-                .eq("user_id", value: userId.uuidString)
-                .order("created_at", ascending: false)
-                .execute()
-                .value
-            
-            return goals
-        } catch {
-            throw SupabaseError.networkError(error)
-        }
-    }
-    
-    /// Fetch goals filtered by status
-    /// - Parameter status: Goal status to filter by
-    /// - Returns: Array of goals matching the status
-    func fetchGoals(status: GoalStatus) async throws -> [Goal] {
-        guard let userId = currentUser?.id else {
-            throw SupabaseError.notAuthenticated
-        }
-        
-        do {
-            let goals: [Goal] = try await client
-                .from("goals")
-                .select()
-                .eq("user_id", value: userId.uuidString)
-                .eq("status", value: status.rawValue)
-                .order("priority", ascending: false)
-                .order("created_at", ascending: false)
-                .execute()
-                .value
-            
-            return goals
-        } catch {
-            throw SupabaseError.networkError(error)
-        }
-    }
-    
-    /// Fetch a single goal by ID
-    /// - Parameter id: Goal ID
-    /// - Returns: Goal if found, nil otherwise
-    func fetchGoal(id: UUID) async throws -> Goal? {
-        guard currentUser != nil else {
-            throw SupabaseError.notAuthenticated
-        }
-        
-        do {
-            let goal: Goal = try await client
-                .from("goals")
-                .select()
-                .eq("id", value: id.uuidString)
-                .single()
-                .execute()
-                .value
-            
-            return goal
-        } catch {
-            if error.localizedDescription.contains("404") {
-                return nil
-            }
-            throw SupabaseError.networkError(error)
-        }
-    }
-    
-    /// Create a new goal
-    /// - Parameter input: Goal input data
-    /// - Returns: The created goal
-    func createGoal(title: String, description: String, horizonMonths: Int, dailyMinutes: Int) async throws -> Goal {
-        guard let userId = currentUser?.id else {
-            throw SupabaseError.notAuthenticated
-        }
-        
-        // Create insert data structure
-        struct GoalInsert: Encodable {
-            let userId: String
-            let title: String
-            let description: String
-            let horizonMonths: Int
-            let dailyMinutes: Int
-            let status: String
-            let priority: Int
-            
-            enum CodingKeys: String, CodingKey {
-                case userId = "user_id"
-                case title
-                case description
-                case horizonMonths = "horizon_months"
-                case dailyMinutes = "daily_minutes"
-                case status
-                case priority
-            }
-        }
-        
-        let insertData = GoalInsert(
-            userId: userId.uuidString,
-            title: title,
-            description: description,
-            horizonMonths: horizonMonths,
-            dailyMinutes: dailyMinutes,
-            status: GoalStatus.draft.rawValue,
-            priority: 0
-        )
-        
-        do {
-            let goal: Goal = try await client
-                .from("goals")
-                .insert(insertData)
-                .select()
-                .single()
-                .execute()
-                .value
-            
-            return goal
-        } catch {
-            throw SupabaseError.networkError(error)
-        }
-    }
-    
-    /// Update an existing goal
-    /// - Parameters:
-    ///   - id: Goal ID to update
-    ///   - updates: Dictionary of fields to update
-    /// - Returns: The updated goal
-    func updateGoal(id: UUID, updates: [String: AnyCodable]) async throws -> Goal {
-        guard currentUser != nil else {
-            throw SupabaseError.notAuthenticated
-        }
-        
-        // Add updated_at timestamp
-        var updateData = updates
-        updateData["updated_at"] = AnyCodable(ISO8601DateFormatter().string(from: Date()))
-        
-        do {
-            let goal: Goal = try await client
-                .from("goals")
-                .update(updateData)
-                .eq("id", value: id.uuidString)
-                .select()
-                .single()
-                .execute()
-                .value
-            
-            return goal
-        } catch {
-            throw SupabaseError.networkError(error)
-        }
-    }
-    
-    /// Update goal status
-    /// - Parameters:
-    ///   - id: Goal ID
-    ///   - status: New status
-    /// - Returns: The updated goal
-    func updateGoalStatus(id: UUID, status: GoalStatus) async throws -> Goal {
-        try await updateGoal(id: id, updates: ["status": AnyCodable(status.rawValue)])
-    }
-    
-    /// Delete a goal
-    /// - Parameter id: Goal ID to delete
-    func deleteGoal(id: UUID) async throws {
-        guard currentUser != nil else {
-            throw SupabaseError.notAuthenticated
-        }
-        
-        do {
-            try await client
-                .from("goals")
-                .delete()
-                .eq("id", value: id.uuidString)
-                .execute()
-        } catch {
-            throw SupabaseError.networkError(error)
-        }
-    }
-    
-    // MARK: - Skill Tree Operations
-    
-    /// Fetch skill tree for a goal
-    /// - Parameter goalId: Goal ID
-    /// - Returns: Skill tree with nodes if found
-    func fetchSkillTree(forGoal goalId: UUID) async throws -> SkillTreeWithNodes? {
-        guard currentUser != nil else {
-            throw SupabaseError.notAuthenticated
-        }
-        
-        do {
-            let skillTree: SkillTree = try await client
-                .from("skill_trees")
-                .select()
-                .eq("goal_id", value: goalId.uuidString)
-                .order("version", ascending: false)
-                .limit(1)
-                .single()
-                .execute()
-                .value
-            
-            // Fetch nodes for this skill tree
-            let nodes: [SkillTreeNode] = try await client
-                .from("skill_tree_nodes")
-                .select()
-                .eq("skill_tree_id", value: skillTree.id.uuidString)
-                .order("level", ascending: true)
-                .execute()
-                .value
-            
-            return SkillTreeWithNodes(skillTree: skillTree, nodes: nodes)
-        } catch {
-            if error.localizedDescription.contains("404") {
-                return nil
-            }
-            throw SupabaseError.networkError(error)
-        }
-    }
-    
-    // MARK: - Sprint Operations
-    
-    /// Fetch sprints for a goal
-    /// - Parameter goalId: Goal ID
-    /// - Returns: Array of sprints ordered by sprint number
-    func fetchSprints(forGoal goalId: UUID) async throws -> [Sprint] {
-        guard currentUser != nil else {
-            throw SupabaseError.notAuthenticated
-        }
-        
-        do {
-            let sprints: [Sprint] = try await client
-                .from("sprints")
-                .select()
-                .eq("goal_id", value: goalId.uuidString)
-                .order("sprint_number", ascending: true)
-                .execute()
-                .value
-            
-            return sprints
-        } catch {
-            throw SupabaseError.networkError(error)
-        }
-    }
-    
-    /// Fetch the latest sprint for a goal
-    /// - Parameter goalId: Goal ID
-    /// - Returns: Latest sprint with tasks if found
-    func fetchLatestSprint(forGoal goalId: UUID) async throws -> SprintWithTasks? {
-        guard currentUser != nil else {
-            throw SupabaseError.notAuthenticated
-        }
-        
-        do {
-            let sprint: Sprint = try await client
-                .from("sprints")
-                .select()
-                .eq("goal_id", value: goalId.uuidString)
-                .order("sprint_number", ascending: false)
-                .limit(1)
-                .single()
-                .execute()
-                .value
-            
-            // Fetch tasks for this sprint
-            let tasks: [SprintTask] = try await client
-                .from("sprint_tasks")
-                .select()
-                .eq("sprint_id", value: sprint.id.uuidString)
-                .order("created_at", ascending: true)
-                .execute()
-                .value
-            
-            return SprintWithTasks(sprint: sprint, tasks: tasks)
-        } catch {
-            if error.localizedDescription.contains("404") {
-                return nil
-            }
-            throw SupabaseError.networkError(error)
-        }
-    }
-    
-    /// Fetch tasks for a sprint
-    /// - Parameter sprintId: Sprint ID
-    /// - Returns: Array of sprint tasks
     func fetchTasks(forSprint sprintId: UUID) async throws -> [SprintTask] {
         guard currentUser != nil else {
             throw SupabaseError.notAuthenticated
         }
 
         do {
-            let tasks: [SprintTask] = try await client
+            let result = try await client
                 .from("sprint_tasks")
                 .select()
                 .eq("sprint_id", value: sprintId.uuidString)
                 .order("created_at", ascending: true)
                 .execute()
-                .value
 
-            return tasks
+            print("DEBUG: fetchTasks raw result -> \(result)")
+
+            if let tasks = result.value as? [SprintTask] {
+                return tasks
+            }
+
+            if let any = result.value {
+                if JSONSerialization.isValidJSONObject(any) {
+                    do {
+                        let data = try JSONSerialization.data(withJSONObject: any, options: [])
+                        let decoded = try JSONDecoder().decode([SprintTask].self, from: data)
+                        return decoded
+                    } catch {
+                        print("DEBUG: failed to JSON-decode tasks from result.value: \(error)")
+                    }
+                } else {
+                    print("DEBUG: result.value exists but is not valid JSON object for serialization: \(type(of: any))")
+                }
+            } else {
+                print("DEBUG: result.value is nil")
+            }
+
+            return []
         } catch {
+            print("DEBUG: fetchTasks network error -> \(error)")
             throw SupabaseError.networkError(error)
         }
     }
 
-    /// Fetch the current active sprint for the user with all of its tasks
-    /// - Returns: SprintWithTasks if found, nil otherwise
     func fetchCurrentSprintWithTasks() async throws -> SprintWithTasks? {
-        guard currentUser != nil else {
+        guard let user = currentUser else {
             throw SupabaseError.notAuthenticated
         }
 
         do {
-            let sprint: Sprint = try await client
+            let sprintResult = try await client
                 .from("sprints")
                 .select()
+                .eq("user_id", value: user.id)
                 .eq("status", value: "active")
-                .order("from_date", ascending: false)
+                .order("sprint_number", ascending: false)
                 .limit(1)
-                .single()
                 .execute()
-                .value
 
-            let tasks = try await fetchTasks(forSprint: sprint.id)
-            return SprintWithTasks(sprint: sprint, tasks: tasks)
-        } catch {
-            if error.localizedDescription.contains("404") {
-                return nil
+            print("DEBUG: fetchCurrentSprintWithTasks sprintResult -> \(sprintResult)")
+
+            if let sprintArray = sprintResult.value as? [Sprint], let sprint = sprintArray.first {
+                let tasks = try await fetchTasks(forSprint: sprint.id)
+                return SprintWithTasks(sprint: sprint, tasks: tasks)
             }
+
+            if let any = sprintResult.value {
+                print("DEBUG: sprintResult.value exists but unexpected type: \(type(of: any))")
+            }
+
+            return nil
+        } catch {
+            print("DEBUG: fetchCurrentSprintWithTasks error -> \(error)")
             throw SupabaseError.networkError(error)
         }
     }
+}
 
-    /// Mark a sprint as finished by updating its status to completed
-    /// - Parameter sprintId: Sprint ID to update
-    /// - Returns: Updated sprint model
-    func finishSprint(sprintId: UUID) async throws -> Sprint {
-        guard currentUser != nil else {
-            throw SupabaseError.notAuthenticated
-        }
+protocol SupabaseClientProtocol {
+    func from(_ table: String) -> PostgrestQueryBuilder
+}
 
-        struct SprintUpdate: Encodable {
-            let status: String
-            let updatedAt: String
+protocol PostgrestQueryBuilder {
+    func select(_ columns: String...) -> PostgrestQueryBuilder
+    func select() -> PostgrestQueryBuilder
+    func eq(_ column: String, value: String) -> PostgrestQueryBuilder
+    func order(_ column: String, ascending: Bool) -> PostgrestQueryBuilder
+    func limit(_ count: Int) -> PostgrestQueryBuilder
+    func execute() async throws -> PostgrestResponse
+}
 
-            enum CodingKeys: String, CodingKey {
-                case status
-                case updatedAt = "updated_at"
-            }
-        }
+struct PostgrestResponse {
+    let value: Any?
+}
 
-        let updateData = SprintUpdate(
-            status: "completed",
-            updatedAt: ISO8601DateFormatter().string(from: Date())
-        )
+struct SupabaseUser {
+    let id: String
+    let email: String?
+}
 
-        do {
-            let sprint: Sprint = try await client
-                .from("sprints")
-                .update(updateData)
-                .eq("id", value: sprintId.uuidString)
-                .select()
-                .single()
-                .execute()
-                .value
+struct Sprint: Codable {
+    let id: UUID
+    let goalId: UUID
+    let sprintNumber: Int
+    let fromDate: Date?
+    let toDate: Date?
+    let status: String
+    let summary: String?
+    let metrics: [String: AnyCodable]?
+    let createdAt: Date
+    let updatedAt: Date
 
-            return sprint
-        } catch {
-            throw SupabaseError.networkError(error)
-        }
+    enum CodingKeys: String, CodingKey {
+        case id
+        case goalId = "goal_id"
+        case sprintNumber = "sprint_number"
+        case fromDate = "from_date"
+        case toDate = "to_date"
+        case status
+        case summary
+        case metrics
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
     }
-    
-    /// Update task status
-    /// - Parameters:
-    ///   - taskId: Task ID
-    ///   - status: New status
-    /// - Returns: Updated task
-    func updateTaskStatus(taskId: UUID, status: TaskStatus) async throws -> SprintTask {
-        guard currentUser != nil else {
-            throw SupabaseError.notAuthenticated
-        }
-        
-        struct TaskUpdate: Encodable {
-            let status: String
-            let updatedAt: String
-            
-            enum CodingKeys: String, CodingKey {
-                case status
-                case updatedAt = "updated_at"
-            }
-        }
-        
-        let updateData = TaskUpdate(
-            status: status.rawValue,
-            updatedAt: ISO8601DateFormatter().string(from: Date())
-        )
-        
-        do {
-            let task: SprintTask = try await client
-                .from("sprint_tasks")
-                .update(updateData)
-                .eq("id", value: taskId.uuidString)
-                .select()
-                .single()
-                .execute()
-                .value
-            
-            return task
-        } catch {
-            throw SupabaseError.networkError(error)
-        }
+}
+
+struct AnyCodable: Codable {}
+
+struct SprintTask: Codable, Identifiable, Equatable {
+    let id: UUID
+    let sprintId: UUID
+    let skillNodeId: UUID?
+    let title: String
+    let description: String
+    let difficulty: String
+    let status: String
+    let dueDate: String?
+    let estimatedMinutes: Int?
+    let createdAt: Date
+    let updatedAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case sprintId = "sprint_id"
+        case skillNodeId = "skill_node_id"
+        case title
+        case description
+        case difficulty
+        case status
+        case dueDate = "due_date"
+        case estimatedMinutes = "estimated_minutes"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
     }
 }
