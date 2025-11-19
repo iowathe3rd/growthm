@@ -7,7 +7,7 @@ extension SupabaseService {
     
     func fetchGoals() async throws -> [Goal] {
         guard let userId = currentUser?.id else {
-            throw SupabaseError.notAuthenticated
+            throw SupabaseError.notAuthenticated 
         }
         
         do {
