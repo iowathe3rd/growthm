@@ -13,7 +13,6 @@
 		AB8826DF2EC88C7E00F49375 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = AB8826DE2EC88C7E00F49375 /* Supabase */; };
 		AB8826E12EC88D9C00F49375 /* Realtime in Frameworks */ = {isa = PBXBuildFile; productRef = AB8826E02EC88D9C00F49375 /* Realtime */; };
 		AB8826E32EC88D9C00F49375 /* Storage in Frameworks */ = {isa = PBXBuildFile; productRef = AB8826E22EC88D9C00F49375 /* Storage */; };
-		ABFB00012F0A230300123456 /* SupabaseConfig.plist in Resources */ = {isa = PBXBuildFile; fileRef = ABFB00002F0A230300123456 /* SupabaseConfig.plist */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -89,6 +88,14 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		73AA3D892EC89E9B00397A32 /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				ABFB00002F0A230300123456 /* SupabaseConfig.plist */,
+			);
+			name = "Recovered References";
+			sourceTree = "<group>";
+		};
 		AB88267E2EC8712C00F49375 = {
 			isa = PBXGroup;
 			children = (
@@ -97,6 +104,7 @@
 				AB8826A32EC8712F00F49375 /* Growth MapUITests */,
 				AB8826DD2EC88C7E00F49375 /* Frameworks */,
 				AB8826882EC8712C00F49375 /* Products */,
+				73AA3D892EC89E9B00397A32 /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};
@@ -246,7 +254,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				ABFB00012F0A230300123456 /* SupabaseConfig.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -442,6 +449,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -478,6 +486,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -505,7 +514,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = ZRNR29QMK8;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.bbeglerov.Growth-MapTests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -527,7 +536,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = ZRNR29QMK8;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.bbeglerov.Growth-MapTests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
